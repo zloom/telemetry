@@ -1,0 +1,94 @@
+x-logging_default: &logging_default
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "5"
+        max-size: "10m"
+
+services:
+
+  caddy:
+    <<: *logging_default
+    container_name: telemetry_caddy
+    build:
+      context: ./caddy
+      dockerfile: Dockerfile
+    environment:
+      DOMAIN: localhost
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./data/caddy:/data
+
+  jaeger-collector:
+    <<: *logging_default
+    image: jaegertracing/jaeger-collector:1.63.0
+    container_name: jaeger-collector
+    environment:
+      - CASSANDRA_KEYSPACE=jaeger_v1_dc1
+      - CASSANDRA_SERVERS=cassandra
+    restart: always
+    depends_on:
+      - cassandra-schema
+
+  jaeger-query:
+    <<: *logging_default
+    image: jaegertracing/jaeger-query:1.63.0
+    container_name: query
+    environment:
+      - CASSANDRA_KEYSPACE=jaeger_v1_dc1
+      - CASSANDRA_SERVERS=cassandra
+      - METRICS_STORAGE_TYPE=prometheus
+      - PROMETHEUS_SERVER_URL=http://prometheus:9090/prometheus
+      - QUERY_UI_CONFIG=/etc/jaeger/jaeger-ui.json
+      - QUERY_BASE_PATH=/jaeger-query
+      - PROMETHEUS_QUERY_NORMALIZE_CALLS=true
+      - PROMETHEUS_QUERY_NORMALIZE_DURATION=true
+    volumes:
+      - ./jaeger/jaeger-ui.json:/etc/jaeger/jaeger-ui.json:ro
+    depends_on:
+      - cassandra-schema
+      - cassandra
+      - prometheus
+    restart: always
+    
+  otel-collector:
+    <<: *logging_default
+    image: otel/opentelemetry-collector-contrib:0.112.0
+    container_name: otel-collector
+    volumes:
+      - ./opentelemetry/otel-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    restart: always
+
+  prometheus:
+    <<: *logging_default  
+    image: prom/prometheus:v3.0.1
+    container_name: prometheus
+    user: root
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./data/prometheus:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.external-url=/prometheus"
+    restart: always
+
+  cassandra:
+    <<: *logging_default
+    image: cassandra_telemetry
+    container_name: cassandra
+    build:
+      context: ./cassandra
+      dockerfile: Dockerfile
+    volumes:
+      - ./data/cassandra:/var/lib/cassandra
+
+  cassandra-schema:
+    image: jaegertracing/jaeger-cassandra-schema:1.63.0
+    container_name: cassandra-schema
+    environment:
+      - TRACE_TTL=172800
+    depends_on:
+      - cassandra

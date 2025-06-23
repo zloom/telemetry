@@ -1,0 +1,51 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+        endpoint: "0.0.0.0:4318"
+
+exporters:
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+
+  otlp:
+    endpoint: jaeger-collector:4317
+    tls:
+      insecure: true
+
+connectors:
+  spanmetrics:
+
+processors:
+  batch:
+
+  tail_sampling:
+    decision_wait: 5s
+    policies:
+      - name: errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: ten_percent
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 90
+
+service:
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: "0.0.0.0:8888"
+      level: detailed
+
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [tail_sampling, batch]
+      exporters: [spanmetrics, otlp]
+
+    metrics/spanmetrics:
+      receivers: [spanmetrics]
+      exporters: [prometheus]

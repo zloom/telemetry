@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+
+  trace-generator:
+    image: trace-generator-hotrod
+    container_name: trace-generator
+    build:
+      context: ./trace-generator
+      dockerfile: Dockerfile
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://caddy
+    ports:
+      - 8081:8080
+
+

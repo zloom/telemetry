@@ -1,0 +1,30 @@
+{
+    admin   off
+}
+
+{$DOMAIN} {
+    handle /v1/traces* {
+        reverse_proxy http://otel-collector:4318
+
+        header {
+            Access-Control-Allow-Origin *
+            Access-Control-Allow-Methods "GET, POST, OPTIONS"
+            Access-Control-Allow-Headers "Content-Type, Authorization"
+        }
+
+        @options method OPTIONS
+        respond @options "" 204
+    }
+
+    handle /jaeger-query* {
+        reverse_proxy /jaeger-query* http://jaeger-query:16686
+    }
+
+    handle /prometheus* {
+        reverse_proxy /prometheus* http://prometheus:9090
+    }
+    
+    handle {
+        respond "404 Not Found" 404
+    }
+}

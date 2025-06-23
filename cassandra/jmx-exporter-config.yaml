@@ -1,0 +1,19 @@
+lowercaseOutputLabelNames: true
+lowercaseOutputName: true
+
+whitelistObjectNames:
+  - "org.apache.cassandra.metrics:type=Storage,name=Load,*"
+  - "org.apache.cassandra.metrics:type=Table,*,name=LiveDiskSpaceUsed"
+  - "org.apache.cassandra.metrics:type=Table,*,name=TotalDiskSpaceUsed"
+
+rules:
+  - pattern: 'org.apache.cassandra.metrics<type=Storage, name=(\w+)><>Count'
+    name: cassandra_storage_$1
+    type: COUNTER
+  
+  - pattern: 'org.apache.cassandra.metrics<type=Table, keyspace=(\w+), scope=(\w+), name=(.+)><>Count'
+    name: cassandra_table_$3
+    labels:
+      keyspace: "$1"
+      table: "$2"
+    type: COUNTER
